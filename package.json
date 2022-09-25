@@ -1,0 +1,39 @@
+{
+  "name": "nitrokey_webcrypt",
+  "description": "A Nitrokey WebCrypt Javascript client",
+  "license": "(MIT OR Apache-2.0)",
+  "bugs": {"url": "https://github.com/Nitrokey/nitrokey-webcrypt-js/issues"},
+  "homepage": "https://github.com/Nitrokey/nitrokey-webcrypt-js",
+  "author": {
+    "name": "Nitrokey GmbH",
+    "email": "info@nitrokey.com",
+    "url": "https://nitrokey.com"
+  },
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild index.ts --bundle --outfile=dist/webcrypt.min.js",
+    "build2": "esbuild index.ts --minify --sourcemap --target=chrome99 --outfile=dist/webcrypt.min.js"
+  },
+  "main": "dist/node/webcrypt.min.js",
+  "module": "dist/node/webcrypt.min.mjs",
+  "browser": {
+    "./dist/node/webcrypt.min.js": "./dist/webcrypt.min.js",
+    "./dist/node/webcrypt.min.mjs": "./dist/webcrypt.min.mjs"
+  },
+  "directories": {"lib": "js"},
+  "files": ["dist/"],
+  "devDependencies": {
+    "esbuild": "^0.15.9"
+  },
+  "dependencies": {},
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./index.ts",
+      "module": "./index.ts",
+      "import": "./index.ts",
+      "default": "./index.ts"
+    }
+  }
+}
