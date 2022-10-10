@@ -109,12 +109,8 @@ export function items(dict: Dictionary){
 }
 
 export function getBinaryStr(data: string): Uint8Array {
-    let uintArray = new Uint8Array(data.length).fill(67);
-    for (let i = 0; i < data.length; ++i) {
-        // uintArray[i] = data.charAt(i);
-        uintArray[i] = data.charCodeAt(i);
-    }
-    return uintArray;
+
+    return new TextEncoder().encode(data);
 }
 
 export function dict_binval(dictionary:Dictionary):Dictionary {

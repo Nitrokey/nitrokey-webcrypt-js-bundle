@@ -27,15 +27,13 @@ import {
     number_to_short,
     pkcs7_pad_16
 } from "./helpers";
-import {Session} from "./session";
 import {log_fn} from "./logs";
 import {Dictionary, StatusCallback, WCKeyDetails} from "./types";
-import {CommandDecryptParams, WebcryptData} from "./commands";
+import {CommandDecryptParams, session, WebcryptData} from "./commands";
 
 export * from "./commands";
 export {hexStringToByte, byteToHexString};
 
-const session = new Session();
 
 /**
  * @deprecated
