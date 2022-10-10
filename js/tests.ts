@@ -121,7 +121,7 @@ export async function WebcryptTests(logfn: StatusCallback, progressfn: ProgressC
     await Webcrypt_Login(logfn, new CommandLoginParams(DEFAULT_PIN));
     await progressfn(progress++, max_progress);
 
-    const hash = get_hash("TEST HASH");
+    const hash = await get_hash("TEST HASH");
 
     {
         const kh = await Webcrypt_GenerateKey(logfn);

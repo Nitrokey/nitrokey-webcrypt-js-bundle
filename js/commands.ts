@@ -10,7 +10,7 @@ import {StatusCallback} from "./types";
 import {send_command} from "./transport";
 import {WEBCRYPT_CMD} from "./constants";
 import {Session} from "./session";
-const session = new Session();
+export const session = new Session();
 
 export type WebcryptData = string;
 
@@ -72,6 +72,7 @@ export class CommandLoginReturn {
 }
 export async function Webcrypt_Login(statusCallback: StatusCallback, data: CommandLoginParams): Promise<CommandLoginReturn>{
     const res = await send_command(session, WEBCRYPT_CMD.LOGIN, data, statusCallback);
+    session.token = res["TP"];
     return new CommandLoginReturn(res["TP"]);
 }
 // CommandLogoutParams

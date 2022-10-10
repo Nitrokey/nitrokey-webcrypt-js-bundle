@@ -260,15 +260,15 @@ export async function send_command(token: Session, cmd: WEBCRYPT_CMD, data: any 
  * @param statusCallback The callback for UI message logging
  */
 async function _send_command(token: Session, cmd: WEBCRYPT_CMD, data: any = {}, statusCallback:StatusCallback): Promise<any> {
-  data = dict_binval(data);
   if (cmd === WEBCRYPT_CMD.LOGOUT){
     token.clear();
   } else if (cmd !== WEBCRYPT_CMD.LOGIN) {
     data = token.authorize(data);
   }
+  data = dict_binval(data);
   if (VERBOSE) log_message_library(`send_command, cmd:${cmd}, data:`, data);
 
-  console.log("final data sent", data);
+  if (VERBOSE) log_message_library("final data sent", data);
   data = cbor_encode(data);
   try {
     await lib_delay(100);
