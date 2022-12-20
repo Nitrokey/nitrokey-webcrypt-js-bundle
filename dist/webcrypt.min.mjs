@@ -523,11 +523,7 @@ function int2arr(uint) {
   return uint_arr;
 }
 function getBinaryStr(data) {
-  let uintArray = new Uint8Array(data.length).fill(67);
-  for (let i = 0; i < data.length; ++i) {
-    uintArray[i] = data.charCodeAt(i);
-  }
-  return uintArray;
+  return new TextEncoder().encode(data);
 }
 function dict_binval(dictionary) {
   let res = {};
@@ -954,23 +950,22 @@ async function send_command(token, cmd, data = {}, statusCallback) {
   return res;
 }
 async function _send_command(token, cmd, data = {}, statusCallback) {
-  data = dict_binval(data);
   if (cmd === 5 /* LOGOUT */) {
     token.clear();
   } else if (cmd !== 4 /* LOGIN */) {
     data = token.authorize(data);
   }
+  data = dict_binval(data);
   if (VERBOSE)
     log_message_library(`send_command, cmd:${cmd}, data:`, data);
-  console.log("final data sent", data);
+  if (VERBOSE)
+    log_message_library("final data sent", data);
   data = cbor_encode(data);
   try {
-    await lib_delay(100);
     await repeat_wrapper(() => WEBCRYPT_send(cmd, data), command_to_string[cmd], statusCallback);
   } catch (error) {
     throw error;
   }
-  await lib_delay(100);
   const response_cbor = await WEBCRYPT_receive(cmd);
   if (response_cbor.length == 0) {
     if (VERBOSE)
@@ -982,6 +977,14 @@ async function _send_command(token, cmd, data = {}, statusCallback) {
     log_message_library(`send_command finished, cmd:${cmd}, result:`, result);
   return dict_hexval(result);
 }
+
+// js/types.ts
+var WCKeyDetails = class {
+  constructor(pk, kh) {
+    this.keyhandle = kh;
+    this.pubkey = pk;
+  }
+};
 
 // js/session.ts
 var Session = class {
@@ -1016,23 +1019,15 @@ var Session = class {
   authorize(data) {
     log_message_library(`Auth token '${this.TP.slice(0, 4).toString()}' valid for the next ${this.timeLeft().toFixed(1)} seconds`);
     if (!this.valid()) {
-      if (this.validUntil !== 0)
-        console.warn("Temporary authorization token is not valid anymore. Clearing state.");
+      console.warn("Temporary authorization token is not valid anymore. Clearing state.");
       this.clear();
+      return data;
     }
     if (!data) {
       data = {};
     }
-    data["TP"] = new Uint8Array(4);
+    data["TP"] = this.TP;
     return data;
-  }
-};
-
-// js/types.ts
-var WCKeyDetails = class {
-  constructor(pk, kh) {
-    this.keyhandle = kh;
-    this.pubkey = pk;
   }
 };
 
@@ -1082,6 +1077,7 @@ var CommandLoginReturn = class {
 };
 async function Webcrypt_Login(statusCallback, data) {
   const res = await send_command(session, 4 /* LOGIN */, data, statusCallback);
+  session.token = res["TP"];
   return new CommandLoginReturn(res["TP"]);
 }
 async function Webcrypt_Logout(statusCallback) {
@@ -1257,9 +1253,8 @@ async function Webcrypt_WriteResidentKey(statusCallback, data) {
 }
 
 // js/webcrypt.ts
-var session2 = new Session();
 async function WEBCRYPT_STATUS(statusCallback) {
-  return await send_command(session2, 0 /* STATUS */, {}, statusCallback);
+  return await send_command(session, 0 /* STATUS */, {}, statusCallback);
 }
 async function WEBCRYPT_LOGIN(PIN, statusCallback) {
   const data = { "PIN": PIN };
@@ -1271,7 +1266,7 @@ async function WEBCRYPT_LOGIN(PIN, statusCallback) {
       if (VERBOSE)
         console.log("Please press the touch button to continue");
       await log_fn(`Login attempt: ${i + 1}/${total_attempts}`);
-      result = await send_command(session2, 4 /* LOGIN */, data, statusCallback);
+      result = await send_command(session, 4 /* LOGIN */, data, statusCallback);
       err = 0;
       break;
     } catch (error) {
@@ -1294,13 +1289,13 @@ async function WEBCRYPT_LOGIN(PIN, statusCallback) {
     await log_fn("User touch not registered. Throwing exception.");
     throw err;
   }
-  session2.token = result["TP"];
+  session.token = result["TP"];
   await log_fn("User touch registered. Logged in.");
 }
 async function WEBCRYPT_GENERATE_FROM_DATA(statusCallback, data) {
   const data_to_send = { "HASH": data };
   try {
-    const res = await send_command(session2, 21 /* GENERATE_KEY_FROM_DATA */, data_to_send, statusCallback);
+    const res = await send_command(session, 21 /* GENERATE_KEY_FROM_DATA */, data_to_send, statusCallback);
     const pk = res["PUBKEY"];
     return new WCKeyDetails(pk, res["KEYHANDLE"]);
   } catch (e) {
@@ -1309,13 +1304,13 @@ async function WEBCRYPT_GENERATE_FROM_DATA(statusCallback, data) {
   return new WCKeyDetails("", "");
 }
 async function WEBCRYPT_GENERATE(statusCallback) {
-  const res = await send_command(session2, 18 /* GENERATE_KEY */, null, statusCallback);
+  const res = await send_command(session, 18 /* GENERATE_KEY */, null, statusCallback);
   const pk = res["PUBKEY"];
   return new WCKeyDetails(pk, res["KEYHANDLE"]);
 }
 async function WEBCRYPT_SIGN(statusCallback, hash, key_handle) {
   const data_to_send = { "HASH": hash, "KEYHANDLE": key_handle };
-  const res = await send_command(session2, 19 /* SIGN */, data_to_send, statusCallback);
+  const res = await send_command(session, 19 /* SIGN */, data_to_send, statusCallback);
   return res["SIGNATURE"];
 }
 async function WEBCRYPT_ENCRYPT(statusCallback, data_to_encrypt, pubkey_hex, keyhandle_hex) {
@@ -1377,16 +1372,16 @@ async function WEBCRYPT_VERIFY(statusCallback, pubkey_hex, signature_hex, hash_h
 }
 async function WEBCRYPT_OPENPGP_DECRYPT(statusCallback, eccekey) {
   const data_to_send = { "ECCEKEY": eccekey };
-  const res = await send_command(session2, 32 /* OPENPGP_DECRYPT */, data_to_send, statusCallback);
+  const res = await send_command(session, 32 /* OPENPGP_DECRYPT */, data_to_send, statusCallback);
   return hexStringToByte(res["DATA"]);
 }
 async function WEBCRYPT_OPENPGP_SIGN(statusCallback, data) {
   const data_to_send = { "DATA": data };
-  const res = await send_command(session2, 33 /* OPENPGP_SIGN */, data_to_send, statusCallback);
+  const res = await send_command(session, 33 /* OPENPGP_SIGN */, data_to_send, statusCallback);
   return res["SIGNATURE"];
 }
 async function WEBCRYPT_OPENPGP_INFO(statusCallback) {
-  const res = await send_command(session2, 34 /* OPENPGP_INFO */, {}, statusCallback);
+  const res = await send_command(session, 34 /* OPENPGP_INFO */, {}, statusCallback);
   const sign_pubkey = concat(new Uint8Array([4]), hexStringToByte(res["SIGN_PUBKEY"]));
   const encr_pubkey = concat(new Uint8Array([4]), hexStringToByte(res["ENCR_PUBKEY"]));
   const dateB = hexStringToByte(res["DATE"]);
@@ -1408,10 +1403,10 @@ async function WEBCRYPT_OPENPGP_IMPORT(statusCallback, {
     "AUTH_PRIVKEY": auth_privkey ? byteToHexString(auth_privkey) : sign_privkey ? byteToHexString(sign_privkey) : "",
     "DATE": byteToHexString(new TextEncoder().encode(date.getTime().toString()))
   };
-  await send_command(session2, 35 /* OPENPGP_IMPORT */, data, statusCallback);
+  await send_command(session, 35 /* OPENPGP_IMPORT */, data, statusCallback);
 }
 async function WEBCRYPT_OPENPGP_GENERATE(statusCallback) {
-  await send_command(session2, 36 /* OPENPGP_GENERATE */, {}, statusCallback);
+  await send_command(session, 36 /* OPENPGP_GENERATE */, {}, statusCallback);
 }
 export {
   CommandChangePinParams,
@@ -1473,6 +1468,7 @@ export {
   Webcrypt_TestReboot,
   Webcrypt_WriteResidentKey,
   byteToHexString,
-  hexStringToByte
+  hexStringToByte,
+  session
 };
 //# sourceMappingURL=webcrypt.min.mjs.map
