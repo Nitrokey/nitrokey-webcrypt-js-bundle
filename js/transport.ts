@@ -271,12 +271,10 @@ async function _send_command(token: Session, cmd: WEBCRYPT_CMD, data: any = {}, 
   if (VERBOSE) log_message_library("final data sent", data);
   data = cbor_encode(data);
   try {
-    await lib_delay(100);
     await repeat_wrapper(() => WEBCRYPT_send(cmd, data), command_to_string[cmd], statusCallback);
   } catch (error) {
     throw error;
   }
-  await lib_delay(100);
   const response_cbor = await WEBCRYPT_receive(cmd);
   if (response_cbor.length == 0) {
     if (VERBOSE) log_message_library(`send_command finished, cmd:${cmd}`);
